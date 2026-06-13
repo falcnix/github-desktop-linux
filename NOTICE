@@ -1,0 +1,53 @@
+github-desktop-linux
+====================
+
+This repository redistributes a Linux build of GitHub Desktop. It is an
+unofficial, community-maintained package and is NOT affiliated with, endorsed
+by, or supported by GitHub, Inc.
+
+The distributed binary package (`github-desktop_3.5.13~beta1-1_amd64.deb`)
+contains software owned and copyrighted by its respective upstream authors,
+redistributed here under the terms of the MIT License.
+
+--------------------------------------------------------------------------------
+Upstream components and attribution
+--------------------------------------------------------------------------------
+
+1. GitHub Desktop
+   - Source:    https://github.com/desktop/desktop
+   - Copyright: (c) GitHub, Inc. and GitHub Desktop contributors
+   - License:   MIT
+   - Role:      The application itself (UI, Git integration, all features).
+
+2. GitHub Desktop — Linux fork
+   - Source:    https://github.com/shiftkey/desktop
+   - Copyright: (c) Brendan Forster and contributors
+   - License:   MIT
+   - Role:      Community work enabling Linux builds and packaging of
+                GitHub Desktop.
+
+3. Electron
+   - Source:    https://github.com/electron/electron
+   - Copyright: (c) Electron contributors (OpenJS Foundation)
+   - License:   MIT
+   - Role:      Application runtime (v42.0.1) bundled in the package.
+
+GitHub Desktop also bundles numerous third-party open-source libraries; their
+licenses are distributed within the application bundle and remain in effect.
+
+--------------------------------------------------------------------------------
+Original work in this repository
+--------------------------------------------------------------------------------
+
+The files authored specifically for this repository — README.md, NOTICE,
+CREDITS.md, the documentation under docs/, and packaging/distribution metadata —
+are:
+
+   Copyright (c) 2026 falcnix
+   Licensed under the MIT License (see LICENSE).
+
+Trademarks
+----------
+"GitHub", "GitHub Desktop", and related marks are trademarks of GitHub, Inc.
+"Electron" is a trademark of the OpenJS Foundation. Use of these names is for
+identification only and does not imply endorsement.

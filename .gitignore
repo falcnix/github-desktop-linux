@@ -1,0 +1,10 @@
+# The .deb binary is distributed via GitHub Releases, not committed to git
+# (it is ~152 MB, over GitHub's recommended file size limits).
+*.deb
+*.rpm
+*.AppImage
+
+# OS / editor cruft
+.DS_Store
+*.swp
+*~

@@ -5,8 +5,16 @@ name: Build .deb
 # and (optionally) uploads it to a *draft* GitHub Release for review.
 #
 # The build itself is scripts/build-deb.sh; the same script works locally.
+#
+# Runs on demand (pick the upstream tag) and on every push that touches the
+# packaging tooling, so a broken script or config is caught by CI.
 
 on:
+  push:
+    paths:
+      - '.github/workflows/build-deb.yml'
+      - 'scripts/**'
+      - 'packaging/**'
   workflow_dispatch:
     inputs:
       upstream_ref:
@@ -26,13 +34,19 @@ on:
 permissions:
   contents: write
 
+# Defaults used for push-triggered runs (no inputs available there).
+env:
+  UPSTREAM_REF: ${{ inputs.upstream_ref || 'release-3.6.5' }}
+  CHANNEL: ${{ inputs.channel || 'auto' }}
+  PUBLISH: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish_draft_release) || github.event_name == 'push' }}
+
 concurrency:
-  group: build-deb-${{ inputs.upstream_ref }}
+  group: build-deb-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Build ${{ inputs.upstream_ref }} (amd64)
+    name: Build ${{ inputs.upstream_ref || 'release-3.6.5' }} (amd64)
     # Oldest supported Ubuntu LTS so the native modules link against an old
     # enough glibc for Ubuntu 22.04+ / Debian 12+ users.
     runs-on: ubuntu-22.04
@@ -46,11 +60,11 @@ jobs:
       - name: Check out packaging repo
         uses: actions/checkout@v4
 
-      - name: Check out upstream desktop/desktop@${{ inputs.upstream_ref }}
+      - name: Check out upstream desktop/desktop@${{ env.UPSTREAM_REF }}
         uses: actions/checkout@v4
         with:
           repository: desktop/desktop
-          ref: ${{ inputs.upstream_ref }}
+          ref: ${{ env.UPSTREAM_REF }}
           path: upstream
           fetch-depth: 1
 
@@ -68,8 +82,8 @@ jobs:
 
       - name: Build and package
         run: |
-          if [ "${{ inputs.channel }}" != "auto" ]; then
-            export RELEASE_CHANNEL="${{ inputs.channel }}"
+          if [ "$CHANNEL" != "auto" ]; then
+            export RELEASE_CHANNEL="$CHANNEL"
           fi
           scripts/build-deb.sh --src-tree upstream --out dist
 
@@ -121,7 +135,7 @@ jobs:
           if-no-files-found: error
 
       - name: Create draft release
-        if: ${{ inputs.publish_draft_release }}
+        if: ${{ env.PUBLISH == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           APP_VERSION: ${{ steps.info.outputs.app_version }}
@@ -175,7 +189,12 @@ jobs:
           EOF
 
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $tag already exists; uploading assets to it (overwriting)."
+            is_draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)"
+            if [ "$is_draft" != "true" ]; then
+              echo "::notice::Release $tag is already published; not touching its assets."
+              exit 0
+            fi
+            echo "Draft release $tag already exists; replacing its assets."
             gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
               "dist/${DEB_FILE}" "dist/${DEB_FILE}.sha256"
           else

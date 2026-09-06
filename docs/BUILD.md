@@ -31,6 +31,7 @@ scripts/build-deb.sh          # clone (or reuse) upstream, build, package, verif
 packaging/package-deb.mjs     # electron-installer-debian configuration (metadata, deps, icon, MIME types)
 packaging/github-desktop.desktop.ejs   # template for the .desktop launcher
 .github/workflows/build-deb.yml        # the same script on a clean GitHub Actions runner
+.github/workflows/publish-release.yml  # publishes the draft release when the version tag is pushed
 ```
 
 The steps are:
@@ -84,6 +85,21 @@ GitHub Desktop signs in through a GitHub OAuth app. If
 build time, upstream falls back to its development OAuth app. This works,
 but it is the same app every community build uses. Set the two repository
 secrets to use your own.
+
+### Publishing a release
+
+1. Run the **Build .deb** workflow for the upstream tag. It uploads the
+   package to a draft release named after the app version (e.g. `v3.6.5`).
+2. Review the draft, update the docs and `checksums/` in git, then push the
+   matching tag:
+
+   ```bash
+   git tag v3.6.5 && git push origin v3.6.5
+   ```
+
+   The **Publish release** workflow publishes the draft, marks it as the
+   latest release (or a pre-release when the version contains a `-`), and
+   refuses to publish a draft that has no `.deb` attached.
 
 ### Staying current
 

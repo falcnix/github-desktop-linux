@@ -1,0 +1,58 @@
+name: Publish release
+
+# Release flow:
+#   1. Run "Build .deb" for an upstream tag; it uploads to a *draft* release
+#      named after the app version (e.g. v3.6.5).
+#   2. Review the draft, then push the matching git tag:
+#        git tag v3.6.5 && git push origin v3.6.5
+#      This workflow then publishes the draft and marks it as the latest
+#      release (or a pre-release when the version contains a "-").
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Publish the draft release for ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+
+          # Drafts have no tag yet, so look them up by name.
+          release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq ".[] | select(.tag_name == \"$tag\") | .id" | head -n 1)"
+          if [ -z "$release_id" ]; then
+            echo "::error::No release named $tag exists. Run the Build .deb workflow first."
+            exit 1
+          fi
+
+          is_draft="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" --jq .draft)"
+          if [ "$is_draft" != "true" ]; then
+            echo "Release $tag is already published; nothing to do."
+            exit 0
+          fi
+
+          assets="$(gh api "repos/$GITHUB_REPOSITORY/releases/$release_id/assets" --jq '.[].name')"
+          if ! grep -q '\.deb$' <<<"$assets"; then
+            echo "::error::Draft $tag has no .deb asset; refusing to publish."
+            exit 1
+          fi
+
+          prerelease=false
+          case "$tag" in *-*) prerelease=true ;; esac
+
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" \
+            -F draft=false -F prerelease="$prerelease" \
+            -f target_commitish="$GITHUB_SHA" \
+            -f make_latest="$([ "$prerelease" = true ] && echo false || echo true)" \
+            --jq '"Published " + .html_url'

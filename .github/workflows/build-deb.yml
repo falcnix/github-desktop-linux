@@ -12,6 +12,7 @@ name: Build .deb
 
 on:
   push:
+    branches: ['**']
     paths:
       - '.github/workflows/build-deb.yml'
       - 'scripts/**'

@@ -115,6 +115,15 @@ DIST_APP="$SRC/dist/desktop-linux-x64"
 if [ "$SKIP_BUILD" -eq 1 ] && [ -d "$DIST_APP" ]; then
   log "Skipping build, reusing $DIST_APP"
 else
+  # Ubuntu's gcc predefines _FORTIFY_SOURCE. Upstream's native helpers
+  # (printenvz, desktop-trampoline) compile with -Werror -D_FORTIFY_SOURCE=1,
+  # which then fails with "_FORTIFY_SOURCE redefined". Undefining it before
+  # the module's own flags is harmless everywhere else.
+  if [ "$(uname -s)" = "Linux" ]; then
+    export CC="${CC:-cc} -U_FORTIFY_SOURCE"
+    export CXX="${CXX:-c++} -U_FORTIFY_SOURCE"
+  fi
+
   log "Installing dependencies"
   (cd "$SRC" && yarn install --frozen-lockfile --network-timeout 600000)
 

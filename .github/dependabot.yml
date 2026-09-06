@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Keep the GitHub Actions used by the workflows current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  # electron-installer-debian and its dependencies.
+  - package-ecosystem: npm
+    directory: /packaging
+    schedule:
+      interval: monthly

@@ -55,10 +55,6 @@ jobs:
     # enough glibc for Ubuntu 22.04+ / Debian 12+ users.
     runs-on: ubuntu-22.04
     timeout-minutes: 120
-    env:
-      # Optional. Without them upstream uses its development OAuth app.
-      DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_OAUTH_CLIENT_ID }}
-      DESKTOP_OAUTH_CLIENT_SECRET: ${{ secrets.DESKTOP_OAUTH_CLIENT_SECRET }}
 
     steps:
       - name: Check out packaging repo
@@ -82,9 +78,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential python3 libsecret-1-dev \
-            dpkg-dev fakeroot xvfb
+            dpkg-dev fakeroot xvfb desktop-file-utils
 
       - name: Build and package
+        env:
+          # Optional. Without them upstream uses its development OAuth app.
+          # Scoped to this step only so later steps never see the secret.
+          DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_OAUTH_CLIENT_ID }}
+          DESKTOP_OAUTH_CLIENT_SECRET: ${{ secrets.DESKTOP_OAUTH_CLIENT_SECRET }}
         run: |
           if [ "$CHANNEL" != "auto" ]; then
             export RELEASE_CHANNEL="$CHANNEL"
@@ -100,13 +101,15 @@ jobs:
           done < dist/build-info.txt
 
       - name: Smoke test (install on a clean runner and launch)
+        env:
+          DEB_FILE: ${{ steps.info.outputs.deb_file }}
         run: |
           set -euxo pipefail
-          sudo apt-get install -y ./dist/${{ steps.info.outputs.deb_file }}
+          sudo apt-get install -y "./dist/${DEB_FILE}"
           dpkg -s github-desktop | head -n 12
           test -u /usr/lib/github-desktop/chrome-sandbox
           test -x /usr/bin/github-desktop
-          desktop-file-validate /usr/share/applications/github-desktop.desktop || true
+          desktop-file-validate /usr/share/applications/github-desktop.desktop
 
           # The app must still be alive after 20 seconds under a virtual X server.
           xvfb-run -a github-desktop > launch.log 2>&1 &

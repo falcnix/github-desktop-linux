@@ -49,8 +49,11 @@ The steps are:
    file and icon are present, and write a SHA-256 checksum next to the `.deb`.
 
 The GitHub Actions workflow additionally installs the package on a clean
-Ubuntu 22.04 runner, launches it under a virtual X server, checks that it is
-still running after 20 seconds, and uploads the package to a draft release.
+Ubuntu 22.04 runner, launches it under a virtual X server and checks that it
+is still running after 20 seconds. When started manually with "Upload the
+.deb to a draft GitHub Release" ticked, it also uploads the package to a
+draft release for review. Pushes that touch the tooling only run the build
+and smoke test.
 
 ### Building it yourself
 
@@ -98,13 +101,23 @@ Version: 3.6.5-1
 Section: devel
 Priority: optional
 Architecture: amd64
-Depends: libgtk-3-0, libnotify4, libnss3, xdg-utils, libatspi2.0-0, libdrm2, libgbm1, libxcb-dri3-0, libsecret-1-0, kde-cli-tools | kde-runtime | trash-cli | libglib2.0-bin | gvfs-bin, libcurl3-gnutls
+Depends: libgtk-3-0, libnotify4, libnss3, xdg-utils, libatspi2.0-0, libdrm2, libgbm1, libxcb-dri3-0, libsecret-1-0, kde-cli-tools | kde-runtime | trash-cli | libglib2.0-bin | gvfs, libcurl3-gnutls
 Recommends: libasound2t64 | libasound2 | pulseaudio, gnome-keyring
-Suggests: lsb-release
+Suggests: gnome-keyring, lsb-release
+Installed-Size: 755097
 Maintainer: falcnix <falcnix@gmail.com>
 Homepage: https://github.com/desktop/desktop
 Description: Simple collaboration from your desktop
+ GitHub Desktop is an open source, Electron-based Git client. This is an
+ unofficial community build of the desktop/desktop source tree for Debian-based
+ Linux distributions; it is not affiliated with or supported by GitHub, Inc.
+ Packaging: https://github.com/falcnix/github-desktop-linux
 ```
+
+Upstream commit: `13b57bd28dcaa94ec55374f814dab7a1645ae3b0` (tag `release-3.6.5`).
+Built by workflow run
+[34018653439](https://github.com/falcnix/github-desktop-linux/actions/runs/34018653439)
+with Node 24.15.0 on `ubuntu-22.04`.
 
 ## Verification
 

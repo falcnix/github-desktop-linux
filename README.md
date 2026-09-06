@@ -15,49 +15,51 @@ distributes the result for Debian-based distributions.
 
 | | |
 |---|---|
-| Application | GitHub Desktop `3.5.13-beta1` |
-| Package (download) | `github-desktop_3.5.13.beta1-1_amd64.deb` |
-| Debian version | `3.5.13~beta1-1` |
+| Application | GitHub Desktop `3.6.5` |
+| Package (download) | `github-desktop_3.6.5-1_amd64.deb` |
+| Debian version | `3.6.5-1` |
 | Architecture | `amd64` (x86-64) |
 | Electron runtime | `42.0.1` |
-| Built from | [`desktop/desktop`](https://github.com/desktop/desktop) (MIT) |
+| Built from | [`desktop/desktop`](https://github.com/desktop/desktop) tag [`release-3.6.5`](https://github.com/desktop/desktop/releases/tag/release-3.6.5) (MIT) |
 | License | MIT, see [LICENSE](LICENSE) |
 
 The `.deb` itself is published as a [Release](../../releases) asset rather than
-committed to the repository (it is about 152 MB).
+committed to the repository (it is about 230 MB).
 
 ## Install
 
-Download `github-desktop_3.5.13.beta1-1_amd64.deb` from the
+Download `github-desktop_3.6.5-1_amd64.deb` from the
 [latest release](../../releases/latest), then:
-
-> [!NOTE]
-> GitHub replaces the `~` in the Debian version with `.` in the release asset
-> name, so the downloaded file is `github-desktop_3.5.13.beta1-1_amd64.deb`
-> even though the installed package version is `3.5.13~beta1-1`.
 
 ```bash
 # Recommended, resolves dependencies automatically
-sudo apt install ./github-desktop_3.5.13.beta1-1_amd64.deb
+sudo apt install ./github-desktop_3.6.5-1_amd64.deb
 
 # Or with dpkg (then fix any missing deps)
-sudo dpkg -i ./github-desktop_3.5.13.beta1-1_amd64.deb
+sudo dpkg -i ./github-desktop_3.6.5-1_amd64.deb
 sudo apt-get install -f
 ```
 
 Launch from your application menu, or run `github-desktop` from a terminal.
 
+> [!NOTE]
+> For pre-release builds the Debian version contains a `~` (for example
+> `3.5.13~beta1-1`). GitHub replaces it with `.` in the release asset name, so
+> the file you download is named `github-desktop_3.5.13.beta1-1_amd64.deb`.
+
 ### Verify the download
 
 ```bash
-sha256sum -c github-desktop_3.5.13.beta1-1_amd64.deb.sha256
+sha256sum -c github-desktop_3.6.5-1_amd64.deb.sha256
 ```
 
 Expected SHA-256:
 
 ```
-1c4a0646d2a748839770f8bb71078fd05762cb03f3c67ebe45b7ab0ebb013cd0
+7c25d868a64ce2e926611eeb646a39ce8aabf1fa970e57dc3a1dfc2a31b6e4df
 ```
+
+Checksums for every release are also kept under [`checksums/`](checksums).
 
 ## Update / uninstall
 
@@ -67,19 +69,40 @@ Expected SHA-256:
 sudo apt remove github-desktop
 ```
 
-## Dependencies
+## Requirements and dependencies
+
+Ubuntu 22.04 or newer, Debian 12 or newer, or a derivative (glibc 2.35+).
 
 Pulled in automatically by `apt`: `libgtk-3-0`, `libnotify4`, `libnss3`,
-`xdg-utils`, `libatspi2.0-0`, `libdrm2`, `libgbm1`, `libxcb-dri3-0`, `libxss1`,
-`libxtst6`, `libsecret-1-0`, `libasound2`, and a trash-handler
-(`kde-cli-tools | trash-cli | gvfs-bin`).
+`xdg-utils`, `libatspi2.0-0`, `libdrm2`, `libgbm1`, `libxcb-dri3-0`,
+`libsecret-1-0`, `libcurl3-gnutls` and a trash handler
+(`kde-cli-tools | kde-runtime | trash-cli | libglib2.0-bin | gvfs`).
+Recommended: `gnome-keyring` (or another Secret Service provider such as
+KWallet) so that sign-in tokens can be stored, and `libasound2`/`pulseaudio`.
 
-## How this was built
+## Troubleshooting
 
-See [docs/BUILD.md](docs/BUILD.md) for the build provenance. In short: the
-official open-source [`desktop/desktop`](https://github.com/desktop/desktop)
-source was compiled locally and packaged into a `.deb` using the project's own
-Linux packaging tooling.
+- **Signing in with the browser does nothing.** The package registers the
+  `x-github-desktop-auth`/`x-github-desktop-dev-auth` URL schemes; if your
+  desktop's MIME database was not refreshed, run
+  `sudo update-desktop-database` and try again.
+- **Blank or garbled window.** Try
+  `GITHUB_DESKTOP_DISABLE_HARDWARE_ACCELERATION=1 github-desktop`.
+- **Anything else.** Run `github-desktop` from a terminal and include the
+  output when opening an issue here. Application bugs belong upstream at
+  [`desktop/desktop`](https://github.com/desktop/desktop/issues).
+
+## How this is built
+
+See [docs/BUILD.md](docs/BUILD.md). In short: the
+[Build .deb](.github/workflows/build-deb.yml) GitHub Actions workflow checks
+out the official [`desktop/desktop`](https://github.com/desktop/desktop) source
+at a release tag, runs upstream's own production build, packages the result
+with `electron-installer-debian` using the configuration in
+[`packaging/`](packaging), installs and launches the package on a clean Ubuntu
+runner, and uploads it to a draft release. The same steps run locally with
+`scripts/build-deb.sh`. A weekly workflow opens an issue when upstream
+publishes a newer version than the one shipped here.
 
 ## Credits
 
@@ -95,6 +118,8 @@ ecosystem are the work of others:
   builds and packaging of GitHub Desktop possible.
 - [Electron](https://github.com/electron/electron): copyright Electron
   contributors / OpenJS Foundation, the application runtime (v42.0.1).
+- [`electron-installer-debian`](https://github.com/electron-userland/electron-installer-debian):
+  the tool that turns the built app into a `.deb`.
 
 See [CREDITS.md](CREDITS.md) and [NOTICE](NOTICE) for full attribution.
 
@@ -102,5 +127,5 @@ See [CREDITS.md](CREDITS.md) and [NOTICE](NOTICE) for full attribution.
 
 The redistributed software is licensed under the MIT License, preserving the
 upstream copyright of GitHub, Inc. and the Electron contributors. The original
-files added by this repository (documentation, packaging metadata) are also
-released under MIT. See [LICENSE](LICENSE).
+files added by this repository (documentation, packaging scripts and metadata)
+are also released under MIT. See [LICENSE](LICENSE).

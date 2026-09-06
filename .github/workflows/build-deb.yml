@@ -7,7 +7,8 @@ name: Build .deb
 # The build itself is scripts/build-deb.sh; the same script works locally.
 #
 # Runs on demand (pick the upstream tag) and on every push that touches the
-# packaging tooling, so a broken script or config is caught by CI.
+# packaging tooling, so a broken script or config is caught by CI. Only manual
+# runs upload to a release.
 
 on:
   push:
@@ -38,7 +39,9 @@ permissions:
 env:
   UPSTREAM_REF: ${{ inputs.upstream_ref || 'release-3.6.5' }}
   CHANNEL: ${{ inputs.channel || 'auto' }}
-  PUBLISH: ${{ (github.event_name == 'workflow_dispatch' && inputs.publish_draft_release) || github.event_name == 'push' }}
+  # Only manual runs publish; pushes to the tooling just build and smoke-test,
+  # so a tooling change can never silently replace a release asset.
+  PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_draft_release }}
 
 concurrency:
   group: build-deb-${{ github.ref }}
@@ -110,7 +113,8 @@ jobs:
           sleep 20
           if kill -0 "$pid" 2>/dev/null; then
             echo "App is running; stopping it."
-            kill "$pid" || true
+            pkill -TERM -f '/usr/lib/github-desktop/desktop' || true
+            kill "$pid" 2>/dev/null || true
           else
             echo "::error::GitHub Desktop exited within 20 seconds of launch"
             cat launch.log

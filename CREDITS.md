@@ -32,6 +32,15 @@ upstream projects and their maintainers and contributors.
 - What they made: the cross-platform runtime (Chromium + Node.js) that GitHub
   Desktop is built on. Version `42.0.1` is bundled in this package.
 
+## Packaging tool: electron-installer-debian
+
+- Project: [`electron-userland/electron-installer-debian`](https://github.com/electron-userland/electron-installer-debian)
+- Author: the Electron Userland contributors
+- License: MIT
+- What they made: the tool this repository uses to turn the built Electron
+  app into a Debian package, including the dependency derivation for the
+  bundled Electron runtime.
+
 ## Everyone else
 
 GitHub Desktop bundles a large number of additional open-source dependencies

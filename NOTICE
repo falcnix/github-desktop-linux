@@ -5,8 +5,8 @@ This repository redistributes a Linux build of GitHub Desktop. It is an
 unofficial, community-maintained package and is NOT affiliated with, endorsed
 by, or supported by GitHub, Inc.
 
-The distributed binary package (github-desktop_3.5.13.beta1-1_amd64.deb)
-contains software owned and copyrighted by its respective upstream authors,
+The distributed binary packages (currently github-desktop_3.6.5-1_amd64.deb)
+contain software owned and copyrighted by its respective upstream authors,
 redistributed here under the terms of the MIT License.
 
 --------------------------------------------------------------------------------
@@ -40,8 +40,8 @@ Original work in this repository
 --------------------------------------------------------------------------------
 
 The files authored specifically for this repository (README.md, NOTICE,
-CREDITS.md, the documentation under docs/, and packaging/distribution metadata)
-are:
+CREDITS.md, the documentation under docs/, the build and packaging scripts
+under scripts/ and packaging/, and the GitHub Actions workflows) are:
 
    Copyright (c) 2026 falcnix
    Licensed under the MIT License (see LICENSE).

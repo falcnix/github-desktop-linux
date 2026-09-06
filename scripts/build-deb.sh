@@ -158,16 +158,20 @@ DEB="$(ls -t "$OUT"/github-desktop_*_amd64.deb | head -n 1)"
 log "Verifying $DEB"
 dpkg-deb --info "$DEB"
 
+# Capture the listing once; piping dpkg-deb into `grep -q` would make tar fail
+# with a write error when grep exits early.
+CONTENTS="$(dpkg-deb --contents "$DEB")"
+
 # Chromium refuses to start (on systems where unprivileged user namespaces are
 # restricted) unless chrome-sandbox is setuid root. Make sure the mode survived.
-if ! dpkg-deb --contents "$DEB" | grep -E '^-rws' | grep -q 'chrome-sandbox'; then
+if ! grep -E '^-rws.* \./usr/lib/github-desktop/chrome-sandbox$' <<<"$CONTENTS" >/dev/null; then
   echo "error: chrome-sandbox is not setuid root inside the package" >&2
   exit 1
 fi
 
 for required in usr/bin/github-desktop usr/share/applications/github-desktop.desktop \
   usr/share/icons/hicolor/512x512/apps/github-desktop.png; do
-  if ! dpkg-deb --contents "$DEB" | grep -q " \./$required"; then
+  if ! grep -F " ./$required" <<<"$CONTENTS" >/dev/null; then
     echo "error: $required missing from package" >&2
     exit 1
   fi

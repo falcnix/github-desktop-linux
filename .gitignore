@@ -4,6 +4,11 @@
 *.rpm
 *.AppImage
 
+# Local build outputs of scripts/build-deb.sh
+/build/
+/dist/
+node_modules/
+
 # OS / editor cruft
 .DS_Store
 *.swp

@@ -1,0 +1,69 @@
+name: Check upstream for new releases
+
+# Once a week, compare the newest upstream desktop/desktop release with the
+# newest release published here and open an issue when we have fallen behind.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Compare versions
+        id: cmp
+        run: |
+          set -euo pipefail
+          upstream_tag="$(gh api repos/desktop/desktop/releases/latest --jq .tag_name)"
+          upstream="${upstream_tag#release-}"
+
+          ours_tag="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts \
+            --limit 20 --json tagName --jq '.[].tagName' | sed 's/^v//' | sort -V | tail -n 1)"
+          ours="${ours_tag:-0.0.0}"
+
+          newest="$(printf '%s\n%s\n' "$ours" "$upstream" | sort -V | tail -n 1)"
+          echo "upstream=$upstream ours=$ours"
+          echo "upstream=$upstream" >> "$GITHUB_OUTPUT"
+          echo "ours=$ours" >> "$GITHUB_OUTPUT"
+          if [ "$newest" = "$upstream" ] && [ "$upstream" != "$ours" ]; then
+            echo "behind=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "behind=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open an issue if we are behind
+        if: steps.cmp.outputs.behind == 'true'
+        env:
+          UPSTREAM: ${{ steps.cmp.outputs.upstream }}
+          OURS: ${{ steps.cmp.outputs.ours }}
+        run: |
+          set -euo pipefail
+          title="Upstream GitHub Desktop ${UPSTREAM} is available (we ship ${OURS})"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --search "\"Upstream GitHub Desktop ${UPSTREAM}\" in:title" --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then
+            echo "Issue #$existing already tracks this; nothing to do."
+            exit 0
+          fi
+          body="$(cat <<EOF
+          Upstream published [release-${UPSTREAM}](https://github.com/desktop/desktop/releases/tag/release-${UPSTREAM}),
+          while the newest release in this repository is \`${OURS}\`.
+
+          To update, run the **Build .deb** workflow with \`upstream_ref\` set to
+          \`release-${UPSTREAM}\`. It builds, smoke-tests and uploads the package to a
+          draft release for review. Then update \`README.md\`, \`docs/BUILD.md\`,
+          \`checksums/\` and add \`docs/RELEASE_NOTES_v${UPSTREAM}.md\`.
+
+          _Opened automatically by the check-upstream workflow._
+          EOF
+          )"
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"

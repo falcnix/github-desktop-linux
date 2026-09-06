@@ -1,0 +1,186 @@
+name: Build .deb
+
+# Builds GitHub Desktop from the upstream desktop/desktop source at the given
+# tag, packages it as a .deb, smoke-tests the package on a clean Ubuntu runner
+# and (optionally) uploads it to a *draft* GitHub Release for review.
+#
+# The build itself is scripts/build-deb.sh; the same script works locally.
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: 'Upstream desktop/desktop tag or branch to build (e.g. release-3.6.5)'
+        required: true
+        default: 'release-3.6.5'
+      channel:
+        description: 'Release channel baked into the build'
+        type: choice
+        options: [auto, production, beta, test]
+        default: auto
+      publish_draft_release:
+        description: 'Upload the .deb to a draft GitHub Release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-deb-${{ inputs.upstream_ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ inputs.upstream_ref }} (amd64)
+    # Oldest supported Ubuntu LTS so the native modules link against an old
+    # enough glibc for Ubuntu 22.04+ / Debian 12+ users.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    env:
+      # Optional. Without them upstream uses its development OAuth app.
+      DESKTOP_OAUTH_CLIENT_ID: ${{ secrets.DESKTOP_OAUTH_CLIENT_ID }}
+      DESKTOP_OAUTH_CLIENT_SECRET: ${{ secrets.DESKTOP_OAUTH_CLIENT_SECRET }}
+
+    steps:
+      - name: Check out packaging repo
+        uses: actions/checkout@v4
+
+      - name: Check out upstream desktop/desktop@${{ inputs.upstream_ref }}
+        uses: actions/checkout@v4
+        with:
+          repository: desktop/desktop
+          ref: ${{ inputs.upstream_ref }}
+          path: upstream
+          fetch-depth: 1
+
+      - name: Set up Node (version pinned by upstream)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: upstream/.node-version
+
+      - name: Install build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential python3 libsecret-1-dev \
+            dpkg-dev fakeroot xvfb
+
+      - name: Build and package
+        run: |
+          if [ "${{ inputs.channel }}" != "auto" ]; then
+            export RELEASE_CHANNEL="${{ inputs.channel }}"
+          fi
+          scripts/build-deb.sh --src-tree upstream --out dist
+
+      - name: Read build info
+        id: info
+        run: |
+          cat dist/build-info.txt
+          while IFS='=' read -r key value; do
+            echo "$key=$value" >> "$GITHUB_OUTPUT"
+          done < dist/build-info.txt
+
+      - name: Smoke test (install on a clean runner and launch)
+        run: |
+          set -euxo pipefail
+          sudo apt-get install -y ./dist/${{ steps.info.outputs.deb_file }}
+          dpkg -s github-desktop | head -n 12
+          test -u /usr/lib/github-desktop/chrome-sandbox
+          test -x /usr/bin/github-desktop
+          desktop-file-validate /usr/share/applications/github-desktop.desktop || true
+
+          # The app must still be alive after 20 seconds under a virtual X server.
+          xvfb-run -a github-desktop > launch.log 2>&1 &
+          pid=$!
+          sleep 20
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "App is running; stopping it."
+            kill "$pid" || true
+          else
+            echo "::error::GitHub Desktop exited within 20 seconds of launch"
+            cat launch.log
+            exit 1
+          fi
+          # Chromium crash markers must not appear in the log.
+          if grep -Ei 'segmentation fault|FATAL:.*(sandbox|Check failed)' launch.log; then
+            echo "::error::crash markers found in launch log"
+            cat launch.log
+            exit 1
+          fi
+          sudo apt-get remove -y github-desktop
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-desktop-${{ steps.info.outputs.app_version }}-amd64-deb
+          path: |
+            dist/*.deb
+            dist/*.sha256
+            dist/build-info.txt
+          if-no-files-found: error
+
+      - name: Create draft release
+        if: ${{ inputs.publish_draft_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_VERSION: ${{ steps.info.outputs.app_version }}
+          DEB_FILE: ${{ steps.info.outputs.deb_file }}
+          DEB_VERSION: ${{ steps.info.outputs.deb_version }}
+          ELECTRON_VERSION: ${{ steps.info.outputs.electron_version }}
+          UPSTREAM_COMMIT: ${{ steps.info.outputs.upstream_commit }}
+          SHA256: ${{ steps.info.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          tag="v${APP_VERSION}"
+          prerelease=()
+          case "$APP_VERSION" in *-*) prerelease=(--prerelease) ;; esac
+
+          # The asset name GitHub shows replaces "~" with "." in the file name.
+          asset="$(echo "$DEB_FILE" | tr '~' '.')"
+          cat > notes.md <<EOF
+          # GitHub Desktop for Linux, v${APP_VERSION}
+
+          Unofficial Debian/Ubuntu \`.deb\` build of
+          [GitHub Desktop \`${APP_VERSION}\`](https://github.com/desktop/desktop/releases/tag/release-${APP_VERSION})
+          (commit \`${UPSTREAM_COMMIT}\`), on Electron \`${ELECTRON_VERSION}\`.
+          Debian package version \`${DEB_VERSION}\`, architecture \`amd64\`.
+
+          ## Install
+
+          \`\`\`bash
+          sudo apt install ./${asset}
+          \`\`\`
+
+          ## Verify
+
+          \`\`\`
+          SHA-256: ${SHA256}
+          \`\`\`
+
+          \`\`\`bash
+          sha256sum -c ${asset}.sha256
+          \`\`\`
+
+          ## Credits
+
+          All credit for the application goes to the upstream projects:
+
+          - [\`desktop/desktop\`](https://github.com/desktop/desktop): GitHub, Inc. (MIT)
+          - [\`shiftkey/desktop\`](https://github.com/shiftkey/desktop): Linux fork (MIT)
+          - [Electron](https://github.com/electron/electron): runtime (MIT)
+
+          This package is community redistribution only and is not affiliated with or
+          endorsed by GitHub, Inc.
+          EOF
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $tag already exists; uploading assets to it (overwriting)."
+            gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
+              "dist/${DEB_FILE}" "dist/${DEB_FILE}.sha256"
+          else
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --draft "${prerelease[@]}" \
+              --title "GitHub Desktop for Linux ${tag}" --notes-file notes.md \
+              "dist/${DEB_FILE}" "dist/${DEB_FILE}.sha256"
+          fi
+          echo "Draft release: https://github.com/${GITHUB_REPOSITORY}/releases/tag/${tag}"

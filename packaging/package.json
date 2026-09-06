@@ -1,0 +1,17 @@
+{
+  "name": "github-desktop-linux-packaging",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Packaging helpers for the unofficial GitHub Desktop .deb (see ../scripts/build-deb.sh)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "package-deb": "node package-deb.mjs"
+  },
+  "devDependencies": {
+    "electron-installer-debian": "^4.0.0"
+  }
+}

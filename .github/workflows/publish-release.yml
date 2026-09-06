@@ -3,15 +3,24 @@ name: Publish release
 # Release flow:
 #   1. Run "Build .deb" for an upstream tag; it uploads to a *draft* release
 #      named after the app version (e.g. v3.6.5).
-#   2. Review the draft, then push the matching git tag:
-#        git tag v3.6.5 && git push origin v3.6.5
-#      This workflow then publishes the draft and marks it as the latest
-#      release (or a pre-release when the version contains a "-").
+#   2. Review the draft, update the docs and checksums/, write the release
+#      name into CURRENT_RELEASE and push. This workflow then publishes the
+#      draft, creating the git tag at the pushed commit, and marks it as the
+#      latest release (or a pre-release when the version contains a "-").
+#
+# Re-running for an already published release is a no-op, so merging the
+# branch that changed CURRENT_RELEASE is safe.
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: ['**']
+    paths:
+      - 'CURRENT_RELEASE'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release to publish (e.g. v3.6.5); defaults to CURRENT_RELEASE'
+        required: false
 
 permissions:
   contents: write
@@ -23,10 +32,20 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Publish the draft release for ${{ github.ref_name }}
+      - uses: actions/checkout@v5
+
+      - name: Publish the draft release
         run: |
           set -euo pipefail
-          tag="$GITHUB_REF_NAME"
+          tag="${{ inputs.tag }}"
+          if [ -z "$tag" ]; then
+            tag="$(tr -d '[:space:]' < CURRENT_RELEASE)"
+          fi
+          case "$tag" in
+            v[0-9]*) ;;
+            *) echo "::error::'$tag' is not a release name like v3.6.5"; exit 1 ;;
+          esac
+          echo "Publishing $tag"
 
           # Drafts have no tag yet, so look them up by name.
           release_id="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
@@ -49,10 +68,11 @@ jobs:
           fi
 
           prerelease=false
-          case "$tag" in *-*) prerelease=true ;; esac
+          make_latest=true
+          case "$tag" in *-*) prerelease=true; make_latest=false ;; esac
 
           gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" \
             -F draft=false -F prerelease="$prerelease" \
             -f target_commitish="$GITHUB_SHA" \
-            -f make_latest="$([ "$prerelease" = true ] && echo false || echo true)" \
+            -f make_latest="$make_latest" \
             --jq '"Published " + .html_url'

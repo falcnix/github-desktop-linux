@@ -31,7 +31,7 @@ scripts/build-deb.sh          # clone (or reuse) upstream, build, package, verif
 packaging/package-deb.mjs     # electron-installer-debian configuration (metadata, deps, icon, MIME types)
 packaging/github-desktop.desktop.ejs   # template for the .desktop launcher
 .github/workflows/build-deb.yml        # the same script on a clean GitHub Actions runner
-.github/workflows/publish-release.yml  # publishes the draft release when the version tag is pushed
+.github/workflows/publish-release.yml  # publishes the draft release named in CURRENT_RELEASE
 ```
 
 The steps are:
@@ -90,16 +90,18 @@ secrets to use your own.
 
 1. Run the **Build .deb** workflow for the upstream tag. It uploads the
    package to a draft release named after the app version (e.g. `v3.6.5`).
-2. Review the draft, update the docs and `checksums/` in git, then push the
-   matching tag:
+2. Review the draft, update the docs and `checksums/` in git, write the
+   release name into [`CURRENT_RELEASE`](../CURRENT_RELEASE) and push:
 
    ```bash
-   git tag v3.6.5 && git push origin v3.6.5
+   echo v3.6.5 > CURRENT_RELEASE
+   git commit -am "Release v3.6.5" && git push
    ```
 
-   The **Publish release** workflow publishes the draft, marks it as the
-   latest release (or a pre-release when the version contains a `-`), and
-   refuses to publish a draft that has no `.deb` attached.
+   The **Publish release** workflow publishes the draft, creates the git tag
+   at the pushed commit, marks it as the latest release (or a pre-release
+   when the version contains a `-`), and refuses to publish a draft that has
+   no `.deb` attached. It can also be run manually with a release name.
 
 ### Staying current
 

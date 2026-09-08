@@ -112,13 +112,16 @@ jobs:
           desktop-file-validate /usr/share/applications/github-desktop.desktop
 
           # The app must still be alive after 20 seconds under a virtual X server.
-          xvfb-run -a github-desktop > launch.log 2>&1 &
+          # setsid puts Xvfb, the app and all its helper processes in one
+          # process group so they can be stopped together afterwards.
+          setsid xvfb-run -a github-desktop > launch.log 2>&1 &
           pid=$!
           sleep 20
           if kill -0 "$pid" 2>/dev/null; then
             echo "App is running; stopping it."
-            pkill -TERM -f '/usr/lib/github-desktop/desktop' || true
-            kill "$pid" 2>/dev/null || true
+            kill -TERM -- "-$pid" 2>/dev/null || true
+            sleep 2
+            kill -KILL -- "-$pid" 2>/dev/null || true
           else
             echo "::error::GitHub Desktop exited within 20 seconds of launch"
             cat launch.log
@@ -158,8 +161,9 @@ jobs:
           prerelease=()
           case "$APP_VERSION" in *-*) prerelease=(--prerelease) ;; esac
 
-          # The asset name GitHub shows replaces "~" with "." in the file name.
-          asset="$(echo "$DEB_FILE" | tr '~' '.')"
+          # build-deb.sh already names pre-release files with "." instead of
+          # "~", matching how GitHub names release assets.
+          asset="$DEB_FILE"
           cat > notes.md <<EOF
           # GitHub Desktop for Linux, v${APP_VERSION}
 

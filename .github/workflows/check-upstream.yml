@@ -49,7 +49,7 @@ jobs:
           set -euo pipefail
           title="Upstream GitHub Desktop ${UPSTREAM} is available (we ship ${OURS})"
           existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
-            --search "\"Upstream GitHub Desktop ${UPSTREAM}\" in:title" --json number --jq '.[0].number')"
+            --search "\"Upstream GitHub Desktop ${UPSTREAM}\" in:title" --json number --jq '.[0].number // empty')"
           if [ -n "$existing" ]; then
             echo "Issue #$existing already tracks this; nothing to do."
             exit 0

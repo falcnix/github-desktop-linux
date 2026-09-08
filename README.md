@@ -44,8 +44,9 @@ Launch from your application menu, or run `github-desktop` from a terminal.
 
 > [!NOTE]
 > For pre-release builds the Debian version contains a `~` (for example
-> `3.5.13~beta1-1`). GitHub replaces it with `.` in the release asset name, so
-> the file you download is named `github-desktop_3.5.13.beta1-1_amd64.deb`.
+> `3.5.13~beta1-1`), but the file is named with a `.` instead
+> (`github-desktop_3.5.13.beta1-1_amd64.deb`) because GitHub does not allow
+> `~` in release asset names. The installed package version still has the `~`.
 
 ### Verify the download
 

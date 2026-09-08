@@ -152,6 +152,19 @@ node "$REPO_ROOT/packaging/package-deb.mjs" \
 
 DEB="$(ls -t "$OUT"/github-desktop_*_amd64.deb | head -n 1)"
 
+# Pre-release Debian versions contain "~" (3.6.6~beta1-1). GitHub Releases
+# rewrites "~" to "." in asset names, so name the file that way ourselves:
+# the checksum file, the release asset and the docs then all agree, and
+# re-uploads with --clobber match the existing asset. The version inside the
+# package is unchanged; dpkg and apt do not care about the file name.
+case "$(basename "$DEB")" in
+  *~*)
+    RENAMED="$OUT/$(basename "$DEB" | tr '~' '.')"
+    mv -f "$DEB" "$RENAMED"
+    DEB="$RENAMED"
+    ;;
+esac
+
 # ---------------------------------------------------------------------------
 # 4. Verify and checksum
 # ---------------------------------------------------------------------------

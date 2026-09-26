@@ -62,11 +62,30 @@ Expected SHA-256:
 
 Checksums for every release are also kept under [`checksums/`](checksums).
 
-## Update / uninstall
+## Updates
+
+The app checks for a newer package **every time it starts**. When one is
+published here, it downloads it, verifies the SHA-256 checksum, asks for your
+password (polkit) and installs it before launching, so you are always on the
+latest release. If you cancel the password prompt, that version is not
+offered again until an even newer one appears.
 
 ```bash
-# Update: install a newer .deb the same way (apt install ./<file>.deb)
-# Uninstall:
+# Check and install by hand (also re-offers a previously declined version)
+github-desktop-update
+
+# Turn the startup check off for one launch, or permanently in your shell profile
+GITHUB_DESKTOP_NO_UPDATE_CHECK=1 github-desktop
+```
+
+The check needs `curl` (a dependency) and, for the prompt and notifications,
+`pkexec` and `libnotify-bin` (recommended packages, installed by default with
+`apt install`). Without them it only logs that an update exists. It never
+installs pre-release builds automatically.
+
+## Uninstall
+
+```bash
 sudo apt remove github-desktop
 ```
 
@@ -76,10 +95,11 @@ Ubuntu 22.04 or newer, Debian 12 or newer, or a derivative (glibc 2.35+).
 
 Pulled in automatically by `apt`: `libgtk-3-0`, `libnotify4`, `libnss3`,
 `xdg-utils`, `libatspi2.0-0`, `libdrm2`, `libgbm1`, `libxcb-dri3-0`,
-`libsecret-1-0`, `libcurl3-gnutls` and a trash handler
+`libsecret-1-0`, `libcurl3-gnutls`, `curl` and a trash handler
 (`kde-cli-tools | kde-runtime | trash-cli | libglib2.0-bin | gvfs`).
 Recommended: `gnome-keyring` (or another Secret Service provider such as
-KWallet) so that sign-in tokens can be stored, and `libasound2`/`pulseaudio`.
+KWallet) so that sign-in tokens can be stored, `pkexec` and `libnotify-bin`
+for the self-updater, and `libasound2`/`pulseaudio`.
 
 ## Troubleshooting
 

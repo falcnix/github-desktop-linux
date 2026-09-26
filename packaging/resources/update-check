@@ -1,0 +1,147 @@
+#!/bin/bash
+# Self-update check for the unofficial GitHub Desktop .deb.
+#
+# Looks up the newest published release of falcnix/github-desktop-linux and,
+# if its package is newer than the installed one, downloads it, verifies the
+# SHA-256 checksum published with it, and installs it with `apt-get` through a
+# polkit password prompt (pkexec). Called by the github-desktop launcher on
+# every start; can also be run by hand.
+#
+#   update-check              check and install if newer
+#   update-check --check      only report; exit 0 = up to date, 10 = update
+#                             available, anything else = could not check
+#
+# Environment:
+#   GITHUB_DESKTOP_UPDATE_REPO       owner/repo to check (default falcnix/github-desktop-linux)
+#   GITHUB_DESKTOP_INSTALLED_VERSION override the installed Debian version (testing)
+#   GITHUB_DESKTOP_NO_UPDATE_CHECK=1 handled by the launcher; this script ignores it
+#
+# A version the user declined to install (cancelled the password prompt) is
+# remembered in $XDG_CONFIG_HOME/github-desktop-linux/skipped-version and not
+# offered again until an even newer one appears.
+
+set -uo pipefail
+
+REPO="${GITHUB_DESKTOP_UPDATE_REPO:-falcnix/github-desktop-linux}"
+PACKAGE="github-desktop"
+API="https://api.github.com/repos/${REPO}/releases/latest"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/github-desktop-linux"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/github-desktop-linux"
+CHECK_ONLY=0
+[ "${1:-}" = "--check" ] && CHECK_ONLY=1
+
+log() { printf 'github-desktop update: %s\n' "$*" >&2; }
+
+notify() {
+  # $1 summary, $2 body. Best effort: notify-send is only recommended.
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send --app-name="GitHub Desktop" --icon=github-desktop "$1" "$2" 2>/dev/null || :
+  fi
+  log "$1: $2"
+}
+
+need() { command -v "$1" >/dev/null 2>&1; }
+
+if ! need curl || ! need dpkg; then
+  log "curl or dpkg not available; skipping"
+  exit 2
+fi
+
+# --- What is installed? ------------------------------------------------------
+installed="${GITHUB_DESKTOP_INSTALLED_VERSION:-}"
+if [ -z "$installed" ]; then
+  installed="$(dpkg-query -W -f='${Version}' "$PACKAGE" 2>/dev/null || true)"
+fi
+if [ -z "$installed" ]; then
+  log "package $PACKAGE is not installed via dpkg; skipping"
+  exit 2
+fi
+
+# --- What is the newest release? ---------------------------------------------
+# releases/latest never returns drafts or pre-releases.
+release_json="$(curl -fsSL --max-time 8 -H 'Accept: application/vnd.github+json' "$API" 2>/dev/null)" || {
+  log "could not reach $API; skipping"
+  exit 2
+}
+
+tag="$(printf '%s' "$release_json" | sed -n 's/^[[:space:]]*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
+deb_url="$(printf '%s' "$release_json" | sed -n 's/^[[:space:]]*"browser_download_url":[[:space:]]*"\([^"]*_amd64\.deb\)".*/\1/p' | head -n 1)"
+sum_url="$(printf '%s' "$release_json" | sed -n 's/^[[:space:]]*"browser_download_url":[[:space:]]*"\([^"]*_amd64\.deb\.sha256\)".*/\1/p' | head -n 1)"
+
+if [ -z "$tag" ] || [ -z "$deb_url" ] || [ -z "$sum_url" ]; then
+  log "latest release has no .deb asset; skipping"
+  exit 2
+fi
+
+# Release tags are v<app version>[-deb<revision>], e.g. v3.6.5, v3.6.6-beta1,
+# v3.6.5-deb2. The Debian version is <app version with - as ~>-<revision>.
+ver="${tag#v}"
+revision=1
+case "$ver" in
+  *-deb[0-9]*) revision="${ver##*-deb}"; ver="${ver%-deb*}" ;;
+esac
+latest="${ver//-/~}-${revision}"
+
+if ! dpkg --compare-versions "$latest" gt "$installed"; then
+  log "installed $installed is up to date (latest $latest)"
+  exit 0
+fi
+
+log "update available: installed $installed, latest $latest ($tag)"
+[ "$CHECK_ONLY" -eq 1 ] && exit 10
+
+skipped="$(cat "$CONFIG_DIR/skipped-version" 2>/dev/null || true)"
+if [ "$skipped" = "$latest" ]; then
+  log "version $latest was declined earlier; not asking again"
+  exit 0
+fi
+
+if ! need pkexec || ! need apt-get; then
+  notify "GitHub Desktop $ver is available" \
+    "Download it from https://github.com/${REPO}/releases/latest"
+  exit 0
+fi
+
+# --- Download and verify -----------------------------------------------------
+mkdir -p "$CACHE_DIR" "$CONFIG_DIR"
+deb_file="$CACHE_DIR/$(basename "$deb_url")"
+sum_file="$deb_file.sha256"
+
+notify "Updating GitHub Desktop to $ver" "Downloading the new package…"
+if ! curl -fsSL --max-time 900 -o "$sum_file" "$sum_url" \
+   || ! curl -fsSL --max-time 900 -C - -o "$deb_file" "$deb_url"; then
+  notify "GitHub Desktop update failed" "Could not download $tag. Starting the installed version."
+  rm -f "$deb_file" "$sum_file"
+  exit 1
+fi
+
+expected="$(cut -d' ' -f1 "$sum_file")"
+actual="$(sha256sum "$deb_file" | cut -d' ' -f1)"
+if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
+  notify "GitHub Desktop update failed" "Checksum mismatch for $(basename "$deb_file"); not installing."
+  rm -f "$deb_file" "$sum_file"
+  exit 1
+fi
+
+# --- Install -----------------------------------------------------------------
+notify "Installing GitHub Desktop $ver" "You will be asked for your password."
+# --no-install-recommends keeps this from pulling in new optional packages
+# without asking; apt still resolves hard dependencies.
+status=0
+pkexec apt-get install -y --no-install-recommends "$deb_file" || status=$?
+
+if [ "$status" -eq 0 ]; then
+  rm -f "$deb_file" "$sum_file" "$CONFIG_DIR/skipped-version"
+  notify "GitHub Desktop updated" "Version $ver is installed and will start now."
+  exit 0
+fi
+
+# 126 = user cancelled the polkit prompt, 127 = not authorised.
+if [ "$status" -eq 126 ] || [ "$status" -eq 127 ]; then
+  printf '%s\n' "$latest" > "$CONFIG_DIR/skipped-version"
+  notify "GitHub Desktop update skipped" \
+    "Version $ver will not be offered again. Run 'github-desktop-update' to install it later."
+else
+  notify "GitHub Desktop update failed" "apt-get exited with status $status. Starting the installed version."
+fi
+exit 1

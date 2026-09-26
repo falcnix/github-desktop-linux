@@ -71,9 +71,13 @@ jobs:
             exit 1
           fi
 
+          # v3.6.6-beta1 is a pre-release; v3.6.5-deb2 (a packaging
+          # re-release of a stable version) is not.
+          app_version="${tag#v}"
+          app_version="$(sed -E 's/-deb[0-9]+$//' <<<"$app_version")"
           prerelease=false
           make_latest=true
-          case "$tag" in *-*) prerelease=true; make_latest=false ;; esac
+          case "$app_version" in *-*) prerelease=true; make_latest=false ;; esac
 
           gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$release_id" \
             -F draft=false -F prerelease="$prerelease" \

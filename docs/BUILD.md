@@ -29,6 +29,7 @@ lives in this repository and is driven by one script:
 ```
 scripts/build-deb.sh          # clone (or reuse) upstream, build, package, verify, checksum
 packaging/package-deb.mjs     # electron-installer-debian configuration (metadata, deps, icon, MIME types)
+packaging/resources/          # launcher (/usr/bin/github-desktop) and the startup self-updater
 packaging/github-desktop.desktop.ejs   # template for the .desktop launcher
 .github/workflows/build-deb.yml        # the same script on a clean GitHub Actions runner
 .github/workflows/publish-release.yml  # publishes the draft release named in CURRENT_RELEASE
@@ -41,13 +42,31 @@ The steps are:
    `RELEASE_CHANNEL=production` (or `beta`/`test`, derived from the version).
    This is exactly what upstream CI runs; it produces
    `dist/desktop-linux-x64/`, an Electron app directory.
-3. Run [`electron-installer-debian`](https://github.com/electron-userland/electron-installer-debian)
+3. Copy the launcher and self-updater from `packaging/resources/` into it:
+   `github-desktop` (what `/usr/bin/github-desktop` points at; runs the update
+   check, then execs the Electron binary `desktop`), `update-check` and
+   `github-desktop-update`.
+4. Run [`electron-installer-debian`](https://github.com/electron-userland/electron-installer-debian)
    over that directory. Runtime dependencies for the bundled Electron are
    derived automatically; on top of those the package adds `libcurl3-gnutls`
-   (the bundled Git's HTTPS helper links against it) and recommends
-   `gnome-keyring` (credential storage uses libsecret).
-4. Verify the result: `chrome-sandbox` is setuid root, the launcher, `.desktop`
-   file and icon are present, and write a SHA-256 checksum next to the `.deb`.
+   (the bundled Git's HTTPS helper links against it) and `curl` (self-update),
+   and recommends `gnome-keyring` (credential storage uses libsecret),
+   `pkexec` and `libnotify-bin` (self-update prompt and notifications).
+5. Verify the result: `chrome-sandbox` is setuid root, the launcher, updater,
+   `.desktop` file and icon are present, and write a SHA-256 checksum next to
+   the `.deb`.
+
+### Release tags and package revisions
+
+Releases are tagged `v<app version>`, e.g. `v3.6.5` or `v3.6.6-beta1`. When
+the same upstream version is re-packaged (a packaging fix, a new launcher),
+the Debian revision is bumped with `--revision 2` (or the workflow's
+`revision` input) and the release is tagged `v<app version>-deb2`. The
+self-updater turns a tag back into a Debian version (`v3.6.5-deb2` is
+`3.6.5-2`, `v3.6.6-beta1` is `3.6.6~beta1-1`) and compares it with
+`dpkg --compare-versions`, so both kinds of release are picked up by
+installed copies. Only stable releases are offered; `releases/latest` never
+returns pre-releases.
 
 The GitHub Actions workflow additionally installs the package on a clean
 Ubuntu 22.04 runner, launches it under a virtual X server and checks that it

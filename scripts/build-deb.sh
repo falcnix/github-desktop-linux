@@ -14,6 +14,9 @@
 #   --channel <name>    RELEASE_CHANNEL for the build (production|beta|test).
 #                       Defaults to a value derived from the upstream version.
 #   --skip-build        Reuse an existing dist/desktop-linux-* build directory.
+#   --revision <n>      Debian package revision (default 1). Bump it to
+#                       re-release the same upstream version with packaging
+#                       changes; the release is then tagged v<version>-deb<n>.
 #
 # Environment:
 #   DESKTOP_OAUTH_CLIENT_ID / DESKTOP_OAUTH_CLIENT_SECRET
@@ -35,6 +38,7 @@ WORK="$PWD/build"
 OUT="$PWD/dist"
 CHANNEL="${RELEASE_CHANNEL:-}"
 SKIP_BUILD=0
+REVISION=1
 
 usage() { sed -n '2,/^$/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
@@ -46,6 +50,7 @@ while [ $# -gt 0 ]; do
     --out) OUT="$2"; shift 2 ;;
     --channel) CHANNEL="$2"; shift 2 ;;
     --skip-build) SKIP_BUILD=1; shift ;;
+    --revision) REVISION="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "error: unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -56,6 +61,9 @@ if [ -z "$REF" ] && [ -z "$SRC_TREE" ]; then
   usage >&2
   exit 2
 fi
+case "$REVISION" in
+  ''|*[!0-9]*|0*) echo "error: --revision must be a positive integer" >&2; exit 2 ;;
+esac
 
 log() { printf '\n==> %s\n' "$*"; }
 
@@ -142,13 +150,19 @@ fi
 log "Installing packaging tooling"
 (cd "$REPO_ROOT/packaging" && npm ci --no-audit --no-fund --silent)
 
-log "Creating Debian package"
+log "Adding launcher and self-updater"
+for f in github-desktop update-check github-desktop-update; do
+  install -m 0755 "$REPO_ROOT/packaging/resources/$f" "$DIST_APP/$f"
+done
+
+log "Creating Debian package (revision $REVISION)"
 mkdir -p "$OUT"
 node "$REPO_ROOT/packaging/package-deb.mjs" \
   --src "$DIST_APP" \
   --dest "$OUT" \
   --icon "$SRC/app/static/linux/icon-logo.png" \
-  --arch amd64
+  --arch amd64 \
+  --revision "$REVISION"
 
 DEB="$(ls -t "$OUT"/github-desktop_*_amd64.deb | head -n 1)"
 
@@ -183,7 +197,9 @@ if ! grep -E '^-rws.* \./usr/lib/github-desktop/chrome-sandbox$' <<<"$CONTENTS" 
 fi
 
 for required in usr/bin/github-desktop usr/share/applications/github-desktop.desktop \
-  usr/share/icons/hicolor/512x512/apps/github-desktop.png; do
+  usr/share/icons/hicolor/512x512/apps/github-desktop.png \
+  usr/lib/github-desktop/github-desktop usr/lib/github-desktop/update-check \
+  usr/lib/github-desktop/github-desktop-update usr/lib/github-desktop/desktop; do
   if ! grep -F " ./$required" <<<"$CONTENTS" >/dev/null; then
     echo "error: $required missing from package" >&2
     exit 1
@@ -192,8 +208,15 @@ done
 
 (cd "$OUT" && sha256sum "$(basename "$DEB")" > "$(basename "$DEB").sha256")
 
+# Release tag: v<app version>, plus -deb<revision> for re-releases of the
+# same upstream version. The self-updater parses this format.
+RELEASE_TAG="v$APP_VERSION"
+[ "$REVISION" != "1" ] && RELEASE_TAG="$RELEASE_TAG-deb$REVISION"
+
 cat > "$OUT/build-info.txt" <<EOF
 app_version=$APP_VERSION
+release_tag=$RELEASE_TAG
+revision=$REVISION
 upstream_ref=${REF:-$(git -C "$SRC" describe --tags --always)}
 upstream_commit=$UPSTREAM_COMMIT
 electron_version=$(cat "$DIST_APP/version")

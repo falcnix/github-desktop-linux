@@ -32,6 +32,10 @@ on:
         description: 'Upload the .deb to a draft GitHub Release'
         type: boolean
         default: true
+      revision:
+        description: 'Debian package revision (bump to re-release the same upstream version)'
+        required: false
+        default: '1'
 
 permissions:
   contents: write
@@ -40,6 +44,7 @@ permissions:
 env:
   UPSTREAM_REF: ${{ inputs.upstream_ref || 'release-3.6.5' }}
   CHANNEL: ${{ inputs.channel || 'auto' }}
+  REVISION: ${{ inputs.revision || '1' }}
   # Only manual runs publish; pushes to the tooling just build and smoke-test,
   # so a tooling change can never silently replace a release asset.
   PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_draft_release }}
@@ -90,7 +95,7 @@ jobs:
           if [ "$CHANNEL" != "auto" ]; then
             export RELEASE_CHANNEL="$CHANNEL"
           fi
-          scripts/build-deb.sh --src-tree upstream --out dist
+          scripts/build-deb.sh --src-tree upstream --out dist --revision "$REVISION"
 
       - name: Read build info
         id: info
@@ -111,10 +116,22 @@ jobs:
           test -x /usr/bin/github-desktop
           desktop-file-validate /usr/share/applications/github-desktop.desktop
 
+          # The self-updater must be able to read the installed version and
+          # reach the releases API. Exit 0 = up to date, 10 = a newer package
+          # is published (fine when rebuilding an older tag); anything else is
+          # a broken updater.
+          set +e
+          /usr/lib/github-desktop/update-check --check
+          rc=$?
+          set -e
+          case "$rc" in 0|10) ;; *) echo "::error::update-check failed with $rc"; exit 1 ;; esac
+
           # The app must still be alive after 20 seconds under a virtual X server.
           # setsid puts Xvfb, the app and all its helper processes in one
-          # process group so they can be stopped together afterwards.
-          setsid xvfb-run -a github-desktop > launch.log 2>&1 &
+          # process group so they can be stopped together afterwards. The
+          # update check is skipped so the test never depends on what is
+          # published.
+          GITHUB_DESKTOP_NO_UPDATE_CHECK=1 setsid xvfb-run -a github-desktop > launch.log 2>&1 &
           pid=$!
           sleep 20
           if kill -0 "$pid" 2>/dev/null; then
@@ -150,6 +167,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           APP_VERSION: ${{ steps.info.outputs.app_version }}
+          RELEASE_TAG: ${{ steps.info.outputs.release_tag }}
           DEB_FILE: ${{ steps.info.outputs.deb_file }}
           DEB_VERSION: ${{ steps.info.outputs.deb_version }}
           ELECTRON_VERSION: ${{ steps.info.outputs.electron_version }}
@@ -157,7 +175,7 @@ jobs:
           SHA256: ${{ steps.info.outputs.sha256 }}
         run: |
           set -euo pipefail
-          tag="v${APP_VERSION}"
+          tag="$RELEASE_TAG"
           prerelease=()
           case "$APP_VERSION" in *-*) prerelease=(--prerelease) ;; esac
 
@@ -165,7 +183,7 @@ jobs:
           # "~", matching how GitHub names release assets.
           asset="$DEB_FILE"
           cat > notes.md <<EOF
-          # GitHub Desktop for Linux, v${APP_VERSION}
+          # GitHub Desktop for Linux, ${tag}
 
           Unofficial Debian/Ubuntu \`.deb\` build of
           [GitHub Desktop \`${APP_VERSION}\`](https://github.com/desktop/desktop/releases/tag/release-${APP_VERSION})
@@ -187,6 +205,13 @@ jobs:
           \`\`\`bash
           sha256sum -c ${asset}.sha256
           \`\`\`
+
+          ## Updates
+
+          The app checks this repository for a newer package every time it
+          starts and offers to install it. Set
+          \`GITHUB_DESKTOP_NO_UPDATE_CHECK=1\` to turn that off, or run
+          \`github-desktop-update\` to check by hand.
 
           ## Credits
 

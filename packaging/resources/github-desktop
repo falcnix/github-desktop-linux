@@ -1,0 +1,20 @@
+#!/bin/sh
+# Launcher for GitHub Desktop (unofficial Linux package).
+#
+# Installed as /usr/lib/github-desktop/github-desktop and symlinked from
+# /usr/bin/github-desktop. Runs the self-update check first, then starts the
+# real Electron binary next to it. The update check never blocks startup for
+# more than a few seconds unless a newer package is actually being installed.
+#
+# Set GITHUB_DESKTOP_NO_UPDATE_CHECK=1 to skip the check.
+
+set -u
+
+here="$(dirname "$(readlink -f "$0")")"
+
+if [ "${GITHUB_DESKTOP_NO_UPDATE_CHECK:-0}" != "1" ] && [ -x "$here/update-check" ]; then
+  # Errors in the updater must never stop the app from launching.
+  "$here/update-check" || :
+fi
+
+exec "$here/desktop" "$@"

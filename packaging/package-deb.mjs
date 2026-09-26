@@ -44,6 +44,11 @@ for (const required of [
   path.join(src, 'desktop'), // upstream names the Linux executable `desktop`
   path.join(src, 'chrome-sandbox'),
   path.join(src, 'version'), // Electron version, read by the installer
+  // Launcher and self-updater, copied in by scripts/build-deb.sh from
+  // packaging/resources/.
+  path.join(src, 'github-desktop'),
+  path.join(src, 'update-check'),
+  path.join(src, 'github-desktop-update'),
 ]) {
   if (!existsSync(required)) {
     console.error(`error: ${required} not found; is --src a packaged Linux build?`)
@@ -67,7 +72,9 @@ const options = {
   name: 'github-desktop',
   productName: appInfo.productName ?? 'GitHub Desktop',
   genericName: 'Git Client',
-  bin: 'desktop',
+  // /usr/bin/github-desktop -> the launcher, which runs the update check and
+  // then execs the Electron binary `desktop` next to it.
+  bin: 'github-desktop',
   description: appInfo.description ?? 'Simple collaboration from your desktop',
   productDescription:
     'GitHub Desktop is an open source, Electron-based Git client. ' +
@@ -99,11 +106,18 @@ const options = {
   depends: [
     // The bundled Git (dugite) links git-remote-https against libcurl-gnutls.
     'libcurl3-gnutls',
+    // The self-update check downloads release metadata and packages.
+    'curl',
   ],
   recommends: [
     // Credential storage goes through libsecret and needs a Secret Service
     // provider; GNOME Keyring is the common one (KDE users have KWallet).
     'gnome-keyring',
+    // Self-update: desktop notifications and the graphical password prompt
+    // used to install a newer package. Without them the launcher only logs
+    // that an update exists.
+    'libnotify-bin',
+    'pkexec | policykit-1',
   ],
 }
 

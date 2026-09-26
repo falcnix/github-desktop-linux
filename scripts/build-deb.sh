@@ -206,6 +206,13 @@ for required in usr/bin/github-desktop usr/share/applications/github-desktop.des
   fi
 done
 
+for script in postinst postrm; do
+  if ! dpkg-deb --ctrl-tarfile "$DEB" | tar -t | grep -qx "./$script"; then
+    echo "error: maintainer script $script missing from package" >&2
+    exit 1
+  fi
+done
+
 (cd "$OUT" && sha256sum "$(basename "$DEB")" > "$(basename "$DEB").sha256")
 
 # Release tag: v<app version>, plus -deb<revision> for re-releases of the

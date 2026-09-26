@@ -92,6 +92,12 @@ const options = {
   categories: ['Development', 'RevisionControl'],
   desktopTemplate: path.join(here, 'github-desktop.desktop.ejs'),
 
+  // Link /usr/bin/github-desktop-update on install, remove it on removal.
+  scripts: {
+    postinst: path.join(here, 'resources', 'deb', 'postinst'),
+    postrm: path.join(here, 'resources', 'deb', 'postrm'),
+  },
+
   // The app registers these URL schemes for "sign in with browser" OAuth
   // callbacks and for github.com "Open in Desktop" links. On Linux the
   // handler only works when the .desktop file declares the schemes.

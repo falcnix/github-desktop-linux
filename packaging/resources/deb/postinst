@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+# electron-installer-debian links only the main binary into /usr/bin.
+# Also expose the manual update command.
+case "$1" in
+  configure)
+    ln -sf /usr/lib/github-desktop/github-desktop-update /usr/bin/github-desktop-update
+    ;;
+esac
+
+exit 0

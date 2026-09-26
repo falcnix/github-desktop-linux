@@ -114,6 +114,7 @@ jobs:
           dpkg -s github-desktop | head -n 12
           test -u /usr/lib/github-desktop/chrome-sandbox
           test -x /usr/bin/github-desktop
+          test -x /usr/bin/github-desktop-update
           desktop-file-validate /usr/share/applications/github-desktop.desktop
 
           # The self-updater must be able to read the installed version and
@@ -151,6 +152,7 @@ jobs:
             exit 1
           fi
           sudo apt-get remove -y github-desktop
+          test ! -e /usr/bin/github-desktop-update
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

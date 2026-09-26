@@ -9,7 +9,7 @@ transparent and reproducible.
 |---|---|
 | Application | GitHub Desktop |
 | Version | `3.6.5` |
-| Package version | `3.6.5-1` |
+| Package version | `3.6.5-2` |
 | Architecture | `amd64` |
 | Electron | `42.0.1` |
 | Source | [`desktop/desktop`](https://github.com/desktop/desktop) tag [`release-3.6.5`](https://github.com/desktop/desktop/releases/tag/release-3.6.5) |
@@ -134,12 +134,12 @@ Extracted from the `.deb` control file:
 
 ```
 Package: github-desktop
-Version: 3.6.5-1
+Version: 3.6.5-2
 Section: devel
 Priority: optional
 Architecture: amd64
-Depends: libgtk-3-0, libnotify4, libnss3, xdg-utils, libatspi2.0-0, libdrm2, libgbm1, libxcb-dri3-0, libsecret-1-0, kde-cli-tools | kde-runtime | trash-cli | libglib2.0-bin | gvfs, libcurl3-gnutls
-Recommends: libasound2t64 | libasound2 | pulseaudio, gnome-keyring
+Depends: libgtk-3-0, libnotify4, libnss3, xdg-utils, libatspi2.0-0, libdrm2, libgbm1, libxcb-dri3-0, libsecret-1-0, kde-cli-tools | kde-runtime | trash-cli | libglib2.0-bin | gvfs, libcurl3-gnutls, curl
+Recommends: libasound2t64 | libasound2 | pulseaudio, gnome-keyring, libnotify-bin, pkexec | policykit-1
 Suggests: gnome-keyring, lsb-release
 Installed-Size: 755097
 Maintainer: falcnix <falcnix@gmail.com>
@@ -153,7 +153,7 @@ Description: Simple collaboration from your desktop
 
 Upstream commit: `13b57bd28dcaa94ec55374f814dab7a1645ae3b0` (tag `release-3.6.5`).
 Built by workflow run
-[34018653439](https://github.com/falcnix/github-desktop-linux/actions/runs/34018653439)
+[36257230801](https://github.com/falcnix/github-desktop-linux/actions/runs/36257230801)
 with Node 24.15.0 on `ubuntu-22.04`.
 
 ## Verification
@@ -161,7 +161,7 @@ with Node 24.15.0 on `ubuntu-22.04`.
 Each release publishes a SHA-256 checksum alongside the `.deb`:
 
 ```bash
-sha256sum -c github-desktop_3.6.5-1_amd64.deb.sha256
+sha256sum -c github-desktop_3.6.5-2_amd64.deb.sha256
 ```
 
 The checksums of every release are also committed under [`checksums/`](../checksums).

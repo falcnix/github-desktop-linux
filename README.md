@@ -16,8 +16,8 @@ distributes the result for Debian-based distributions.
 | | |
 |---|---|
 | Application | GitHub Desktop `3.6.5` |
-| Package (download) | `github-desktop_3.6.5-1_amd64.deb` |
-| Debian version | `3.6.5-1` |
+| Package (download) | `github-desktop_3.6.5-2_amd64.deb` |
+| Debian version | `3.6.5-2` |
 | Architecture | `amd64` (x86-64) |
 | Electron runtime | `42.0.1` |
 | Built from | [`desktop/desktop`](https://github.com/desktop/desktop) tag [`release-3.6.5`](https://github.com/desktop/desktop/releases/tag/release-3.6.5) (MIT) |
@@ -28,15 +28,15 @@ committed to the repository (it is about 230 MB).
 
 ## Install
 
-Download `github-desktop_3.6.5-1_amd64.deb` from the
+Download `github-desktop_3.6.5-2_amd64.deb` from the
 [latest release](../../releases/latest), then:
 
 ```bash
 # Recommended, resolves dependencies automatically
-sudo apt install ./github-desktop_3.6.5-1_amd64.deb
+sudo apt install ./github-desktop_3.6.5-2_amd64.deb
 
 # Or with dpkg (then fix any missing deps)
-sudo dpkg -i ./github-desktop_3.6.5-1_amd64.deb
+sudo dpkg -i ./github-desktop_3.6.5-2_amd64.deb
 sudo apt-get install -f
 ```
 
@@ -51,13 +51,13 @@ Launch from your application menu, or run `github-desktop` from a terminal.
 ### Verify the download
 
 ```bash
-sha256sum -c github-desktop_3.6.5-1_amd64.deb.sha256
+sha256sum -c github-desktop_3.6.5-2_amd64.deb.sha256
 ```
 
 Expected SHA-256:
 
 ```
-7c25d868a64ce2e926611eeb646a39ce8aabf1fa970e57dc3a1dfc2a31b6e4df
+43cfe44ff41a6ddda3d8774f225fc2cb25e9c5c02bd94bc332b4dcd0f9555f0f
 ```
 
 Checksums for every release are also kept under [`checksums/`](checksums).

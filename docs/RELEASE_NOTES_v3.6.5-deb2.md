@@ -15,7 +15,7 @@ sudo apt install ./github-desktop_3.6.5-2_amd64.deb
 ## Verify
 
 ```
-SHA-256: see checksums/github-desktop_3.6.5-2_amd64.deb.sha256
+SHA-256: 43cfe44ff41a6ddda3d8774f225fc2cb25e9c5c02bd94bc332b4dcd0f9555f0f
 ```
 
 ```bash

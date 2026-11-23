@@ -2,17 +2,29 @@
 # Launcher for GitHub Desktop (unofficial Linux package).
 #
 # Installed as /usr/lib/github-desktop/github-desktop and symlinked from
-# /usr/bin/github-desktop. Runs the self-update check first, then starts the
-# real Electron binary next to it. The update check never blocks startup for
-# more than a few seconds unless a newer package is actually being installed.
+# /usr/bin/github-desktop. On a plain start it runs the self-update check
+# first, then starts the real Electron binary next to it. The check takes a
+# second or two; it only holds the start longer when a newer package has
+# already been downloaded and is being installed (see update-check).
 #
-# Set GITHUB_DESKTOP_NO_UPDATE_CHECK=1 to skip the check.
+# The check is skipped when:
+#   - GITHUB_DESKTOP_NO_UPDATE_CHECK=1 is set;
+#   - the app was started with arguments, e.g. a sign-in callback or an
+#     "Open in GitHub Desktop" link: those must reach the app straight away;
+#   - GitHub Desktop is already running, since installing would replace its
+#     files underneath it.
 
 set -u
 
 here="$(dirname "$(readlink -f "$0")")"
 
-if [ "${GITHUB_DESKTOP_NO_UPDATE_CHECK:-0}" != "1" ] && [ -x "$here/update-check" ]; then
+running() {
+  command -v pgrep >/dev/null 2>&1 &&
+    pgrep -u "$(id -u)" -f "^$here/desktop( |\$)" >/dev/null 2>&1
+}
+
+if [ "${GITHUB_DESKTOP_NO_UPDATE_CHECK:-0}" != "1" ] && [ "$#" -eq 0 ] &&
+   [ -x "$here/update-check" ] && ! running; then
   # Errors in the updater must never stop the app from launching.
   "$here/update-check" || :
 fi

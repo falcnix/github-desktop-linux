@@ -233,6 +233,8 @@ jobs:
 
           This package is community redistribution only and is not affiliated with or
           endorsed by GitHub, Inc.
+
+          <sub>Packaged from ${GITHUB_REPOSITORY}@${GITHUB_SHA}</sub>
           EOF
 
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
@@ -241,9 +243,13 @@ jobs:
               echo "::notice::Release $tag is already published; not touching its assets."
               exit 0
             fi
-            echo "Draft release $tag already exists; replacing its assets."
+            echo "Draft release $tag already exists; replacing its assets and notes."
             gh release upload "$tag" --repo "$GITHUB_REPOSITORY" --clobber \
               "dist/${DEB_FILE}" "dist/${DEB_FILE}.sha256"
+            # A rebuild is not bit-for-bit identical, so the notes (which
+            # carry the SHA-256 and the packaging commit) must be replaced too.
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+              --title "GitHub Desktop for Linux ${tag}" --notes-file notes.md
           else
             gh release create "$tag" --repo "$GITHUB_REPOSITORY" --draft "${prerelease[@]}" \
               --title "GitHub Desktop for Linux ${tag}" --notes-file notes.md \

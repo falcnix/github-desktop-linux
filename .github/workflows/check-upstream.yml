@@ -26,7 +26,7 @@ jobs:
           upstream_tag="$(gh api repos/desktop/desktop/releases/latest --jq .tag_name)"
           upstream="${upstream_tag#release-}"
 
-          ours_tag="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts \
+          ours_tag="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases \
             --limit 20 --json tagName --jq '.[].tagName' \
             | sed -E 's/^v//; s/-deb[0-9]+$//' | sort -V | tail -n 1)"
           ours="${ours_tag:-0.0.0}"

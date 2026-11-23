@@ -132,7 +132,8 @@ fi
 # npm does not enforce "engines" by itself, so check it here and fail with a
 # clear message instead of an obscure install error later.
 if [ "$PM" = npm ]; then
-  WANT_NPM="$(node -p "((require('$SRC/package.json').engines||{}).npm||'').replace(/[^0-9.]/g,'')")"
+  # First version number in the range, e.g. ">= 11.17.0" or ">=11.17.0 <12" -> 11.17.0.
+  WANT_NPM="$(node -p "(((require('$SRC/package.json').engines||{}).npm||'').match(/[0-9]+(\\.[0-9]+)*/)||[''])[0]")"
   HAVE_NPM="$(npm --version)"
   if [ -n "$WANT_NPM" ] && [ "$(printf '%s\n%s\n' "$WANT_NPM" "$HAVE_NPM" | sort -V | head -n 1)" != "$WANT_NPM" ]; then
     echo "error: upstream needs npm >= $WANT_NPM, found $HAVE_NPM (use the Node version in .node-version)" >&2

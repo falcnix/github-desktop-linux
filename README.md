@@ -64,15 +64,26 @@ Checksums for every release are also kept under [`checksums/`](checksums).
 
 ## Updates
 
-The app checks for a newer package **every time it starts**. When one is
-published here, it downloads it, verifies the SHA-256 checksum, asks for your
-password (polkit) and installs it before launching, so you are always on the
-latest release. If you cancel the password prompt, that version is not
-offered again until an even newer one appears.
+The app checks for a newer package **every time it starts**:
+
+- When a newer release has been published here, the app opens as usual and
+  downloads the new package in the background. The download resumes where it
+  left off if it is interrupted.
+- The next time you start the app, the downloaded package is verified against
+  its published SHA-256 checksum, you are asked for your password (polkit),
+  it is installed, and the new version opens.
+- If you dismiss the password prompt, that version is not offered again until
+  an even newer one appears.
+- The check is skipped when GitHub Desktop is already running, and when it is
+  opened with an argument (a sign-in callback or an "Open in GitHub Desktop"
+  link), so those are never delayed.
 
 ```bash
-# Check and install by hand (also re-offers a previously declined version)
+# Check and install right away (also re-offers a version you dismissed)
 github-desktop-update
+
+# Only report whether an update is available
+github-desktop-update --check
 
 # Turn the startup check off for one launch, or permanently in your shell profile
 GITHUB_DESKTOP_NO_UPDATE_CHECK=1 github-desktop
@@ -80,8 +91,9 @@ GITHUB_DESKTOP_NO_UPDATE_CHECK=1 github-desktop
 
 The check needs `curl` (a dependency) and, for the prompt and notifications,
 `pkexec` and `libnotify-bin` (recommended packages, installed by default with
-`apt install`). Without them it only logs that an update exists. It never
-installs pre-release builds automatically.
+`apt install`). Without them it only reports that an update exists. It never
+installs pre-release builds automatically. Downloads are kept in
+`~/.cache/github-desktop-linux` until they are installed.
 
 ## Uninstall
 

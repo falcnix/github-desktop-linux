@@ -1,7 +1,14 @@
 #!/bin/sh
-# Manually check for and install a newer GitHub Desktop package.
-# Same check the launcher runs at every start; forgets a previously
-# declined version first so it is offered again.
+# Check for a newer GitHub Desktop package and install it right away,
+# downloading it in the foreground if needed. Also forgets a version whose
+# password prompt was dismissed earlier, so it is offered again.
+#
+#   github-desktop-update           install a newer package now
+#   github-desktop-update --check   only report whether one is available
 set -u
 rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/github-desktop-linux/skipped-version"
-exec "$(dirname "$(readlink -f "$0")")/update-check" "$@"
+here="$(dirname "$(readlink -f "$0")")"
+if [ "${1:-}" = "--check" ]; then
+  exec "$here/update-check" --check
+fi
+exec "$here/update-check" --now

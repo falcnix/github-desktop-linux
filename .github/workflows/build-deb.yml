@@ -20,9 +20,9 @@ on:
   workflow_dispatch:
     inputs:
       upstream_ref:
-        description: 'Upstream desktop/desktop tag or branch to build (e.g. release-3.6.5)'
+        description: 'Upstream desktop/desktop tag or branch to build (e.g. release-3.7.0)'
         required: true
-        default: 'release-3.6.5'
+        default: 'release-3.7.0'
       channel:
         description: 'Release channel baked into the build'
         type: choice
@@ -42,7 +42,7 @@ permissions:
 
 # Defaults used for push-triggered runs (no inputs available there).
 env:
-  UPSTREAM_REF: ${{ inputs.upstream_ref || 'release-3.6.5' }}
+  UPSTREAM_REF: ${{ inputs.upstream_ref || 'release-3.7.0' }}
   CHANNEL: ${{ inputs.channel || 'auto' }}
   REVISION: ${{ inputs.revision || '1' }}
   # Only manual runs publish; pushes to the tooling just build and smoke-test,
@@ -55,7 +55,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build ${{ inputs.upstream_ref || 'release-3.6.5' }} (amd64)
+    name: Build ${{ inputs.upstream_ref || 'release-3.7.0' }} (amd64)
     # Oldest supported Ubuntu LTS so the native modules link against an old
     # enough glibc for Ubuntu 22.04+ / Debian 12+ users.
     runs-on: ubuntu-22.04

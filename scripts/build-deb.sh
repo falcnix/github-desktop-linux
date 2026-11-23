@@ -24,7 +24,8 @@
 #                       falls back to its development OAuth app, which works
 #                       but is shared with every other community build.
 #
-# Requirements: git, node (see upstream .node-version), yarn 1.x, dpkg-deb,
+# Requirements: git, node + npm (see upstream .node-version), yarn 1.x only
+#   for upstream releases before 3.7.0, dpkg-deb,
 #   a C/C++ toolchain and python3 (native modules), libsecret-1-dev (keytar).
 
 set -euo pipefail
@@ -73,7 +74,7 @@ need() {
     exit 1
   fi
 }
-for tool in git node yarn dpkg-deb sha256sum; do need "$tool"; done
+for tool in git node npm dpkg-deb sha256sum; do need "$tool"; done
 
 # ---------------------------------------------------------------------------
 # 1. Obtain the upstream source tree
@@ -109,10 +110,34 @@ if [ -z "$CHANNEL" ]; then
   esac
 fi
 
+# Upstream switched from Yarn 1 to npm in 3.7.0. Follow whichever lockfile
+# the checked-out tree has, so both older and newer releases still build.
+if [ -f "$SRC/package-lock.json" ]; then
+  PM=npm
+elif [ -f "$SRC/yarn.lock" ]; then
+  PM=yarn
+  need yarn
+else
+  echo "error: $SRC has neither package-lock.json nor yarn.lock" >&2
+  exit 1
+fi
+
 log "GitHub Desktop $APP_VERSION ($UPSTREAM_COMMIT), channel=$CHANNEL"
-echo "node $HAVE_NODE (upstream wants ${WANT_NODE:-unknown}), yarn $(yarn --version)"
+echo "node $HAVE_NODE (upstream wants ${WANT_NODE:-unknown}), $PM $($PM --version)"
 if [ -n "$WANT_NODE" ] && [ "${WANT_NODE%%.*}" != "${HAVE_NODE%%.*}" ]; then
   echo "warning: Node major version differs from upstream's .node-version" >&2
+fi
+
+# Upstream's package.json may require a minimum npm (3.7.0: >= 11.17.0).
+# npm does not enforce "engines" by itself, so check it here and fail with a
+# clear message instead of an obscure install error later.
+if [ "$PM" = npm ]; then
+  WANT_NPM="$(node -p "((require('$SRC/package.json').engines||{}).npm||'').replace(/[^0-9.]/g,'')")"
+  HAVE_NPM="$(npm --version)"
+  if [ -n "$WANT_NPM" ] && [ "$(printf '%s\n%s\n' "$WANT_NPM" "$HAVE_NPM" | sort -V | head -n 1)" != "$WANT_NPM" ]; then
+    echo "error: upstream needs npm >= $WANT_NPM, found $HAVE_NPM (use the Node version in .node-version)" >&2
+    exit 1
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -132,11 +157,21 @@ else
     export CXX="${CXX:-c++} -U_FORTIFY_SOURCE"
   fi
 
-  log "Installing dependencies"
-  (cd "$SRC" && yarn install --frozen-lockfile --network-timeout 600000)
+  log "Installing dependencies ($PM)"
+  if [ "$PM" = npm ]; then
+    # Upstream's build scripts locate npm through npm_execpath, so they must
+    # run via `npm run`, never directly with ts-node.
+    (cd "$SRC" && npm ci --no-audit --no-fund)
+  else
+    (cd "$SRC" && yarn install --frozen-lockfile --network-timeout 600000)
+  fi
 
   log "Building production app"
-  (cd "$SRC" && RELEASE_CHANNEL="$CHANNEL" yarn build:prod)
+  if [ "$PM" = npm ]; then
+    (cd "$SRC" && RELEASE_CHANNEL="$CHANNEL" npm run build:prod)
+  else
+    (cd "$SRC" && RELEASE_CHANNEL="$CHANNEL" yarn build:prod)
+  fi
 fi
 
 if [ ! -x "$DIST_APP/desktop" ]; then

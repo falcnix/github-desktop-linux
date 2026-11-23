@@ -22,7 +22,7 @@ the exact upstream commit it was built from.
 
 ## How the package is built
 
-Upstream's own `yarn package` step only knows how to package for macOS and
+Upstream's own `package` script only knows how to package for macOS and
 Windows, so this repository adds the Linux packaging step itself. Everything
 lives in this repository and is driven by one script:
 
@@ -38,8 +38,10 @@ packaging/github-desktop.desktop.ejs   # template for the .desktop launcher
 The steps are:
 
 1. Check out `desktop/desktop` at the release tag.
-2. `yarn install --frozen-lockfile` and `yarn build:prod` with
-   `RELEASE_CHANNEL=production` (or `beta`/`test`, derived from the version).
+2. `npm ci` and `npm run build:prod` with `RELEASE_CHANNEL=production` (or
+   `beta`/`test`, derived from the version). Upstream releases before 3.7.0
+   used Yarn 1, so for those the script runs `yarn install --frozen-lockfile`
+   and `yarn build:prod` instead; it picks whichever lockfile the tree has.
    This is exactly what upstream CI runs; it produces
    `dist/desktop-linux-x64/`, an Electron app directory.
 3. Copy the launcher and self-updater from `packaging/resources/` into it:
@@ -77,8 +79,9 @@ and smoke test.
 
 ### Building it yourself
 
-Requirements: `git`, Node (the version in upstream's `.node-version`, 24.x at
-the time of writing), Yarn 1.x, `dpkg-deb`, a C/C++ toolchain, `python3` and
+Requirements: `git`, Node and its bundled npm (the version in upstream's
+`.node-version`, 24.x at the time of writing; 3.7.0 needs npm 11.17 or newer),
+Yarn 1.x only for upstream releases before 3.7.0, `dpkg-deb`, a C/C++ toolchain, `python3` and
 `libsecret-1-dev` (for the native modules).
 
 ```bash
@@ -86,7 +89,7 @@ git clone https://github.com/falcnix/github-desktop-linux.git
 cd github-desktop-linux
 
 # Build a specific upstream release (clones into ./build, output in ./dist)
-scripts/build-deb.sh --ref release-3.6.5
+scripts/build-deb.sh --ref release-3.7.0
 
 # Or package an upstream checkout you already have
 scripts/build-deb.sh --src-tree ~/src/desktop --out dist

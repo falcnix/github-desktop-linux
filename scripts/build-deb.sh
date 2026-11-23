@@ -180,6 +180,42 @@ if [ ! -x "$DIST_APP/desktop" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 2b. Restore the bundled Git's symlinks
+# ---------------------------------------------------------------------------
+# dugite ships Git's dashed builtins (git-upload-pack, git-remote-https, ...)
+# as symlinks to `git` and `git-remote-http`. Since 3.7.0 upstream packages
+# with derefSymlinks, which turns each of them into a full copy of the
+# binary: ~600 MB of identical files. Git dispatches on argv[0], so pointing
+# them back at the one binary is exactly the layout dugite intended and the
+# one 3.6.x shipped. Only byte-identical files are touched.
+GIT_CORE="$DIST_APP/resources/app/git/libexec/git-core"
+if [ -d "$GIT_CORE" ]; then
+  relinked=0
+  for target in git git-remote-http; do
+    [ -f "$GIT_CORE/$target" ] && [ ! -L "$GIT_CORE/$target" ] || continue
+    for f in "$GIT_CORE"/*; do
+      [ -f "$f" ] && [ ! -L "$f" ] || continue
+      case "$(basename "$f")" in git|git-remote-http) continue ;; esac
+      if cmp -s "$f" "$GIT_CORE/$target"; then
+        ln -sfn "$target" "$f"
+        relinked=$((relinked + 1))
+      fi
+    done
+  done
+  log "Relinked $relinked duplicate Git helpers ($(du -sh "$DIST_APP/resources/app/git" | cut -f1) bundled Git)"
+
+  # The bundled Git must still run, including a helper reached via symlink.
+  "$DIST_APP/resources/app/git/bin/git" --version
+  set +e
+  "$GIT_CORE/git-upload-pack" >/dev/null 2>&1
+  rc=$?
+  set -e
+  # Usage error (129) or success both prove the binary ran; 126/127 mean a
+  # broken link or missing interpreter.
+  case "$rc" in 0|129) ;; *) echo "error: bundled git-upload-pack failed to run ($rc)" >&2; exit 1 ;; esac
+fi
+
+# ---------------------------------------------------------------------------
 # 3. Package it as a .deb
 # ---------------------------------------------------------------------------
 log "Installing packaging tooling"

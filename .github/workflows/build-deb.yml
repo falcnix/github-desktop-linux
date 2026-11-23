@@ -117,6 +117,14 @@ jobs:
           test -x /usr/bin/github-desktop-update
           desktop-file-validate /usr/share/applications/github-desktop.desktop
 
+          # Every Git operation in the app runs the bundled Git (dugite). It
+          # must work from the installed location, including the HTTPS helper
+          # (a symlink to git-remote-http, linked against libcurl3-gnutls).
+          G=/usr/lib/github-desktop/resources/app/git
+          GIT_EXEC_PATH="$G/libexec/git-core" "$G/bin/git" --version
+          GIT_EXEC_PATH="$G/libexec/git-core" "$G/bin/git" ls-remote \
+            https://github.com/desktop/desktop.git HEAD
+
           # The self-updater must be able to read the installed version and
           # reach the releases API. Exit 0 = up to date, 10 = a newer package
           # is published (fine when rebuilding an older tag); anything else is
